@@ -1,0 +1,7 @@
+services:
+  notifygate:
+    build: .
+    ports:
+      - "8457:8457"
+    env_file: .env
+    restart: unless-stopped

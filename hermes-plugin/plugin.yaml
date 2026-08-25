@@ -1,0 +1,8 @@
+name: notifygate
+version: 1.0.0
+description: "Send Hermes lifecycle events to a NotifyGate notification filter (dedupe, quiet hours, digests, Telegram/Slack delivery). Set NOTIFYGATE_URL and optionally NOTIFYGATE_SECRET in your .env — the plugin POSTs HMAC-signed events fire-and-forget."
+author: "@fatihayyildiz"
+hooks:
+  - post_tool_call
+  - on_session_end
+  - subagent_stop
