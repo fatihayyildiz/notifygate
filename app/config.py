@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     # Telegram'a EK OLARAK bu kanala da gider.
     slack_webhook_url: str = ""
 
+    # Slack threading (opsiyonel) — bot token (xoxb-...). Webhook'tan üstün:
+    # her topic kendi Slack thread'inde birikir (thread_ts takibiyle).
+    slack_token: str = ""
+    slack_channel: str = ""  # token modunda zorunlu (örn. #notifygate)
+
     # Topic yönlendirme: {"topic_adı": "thread_id"} — event.topic buradan çözülür.
     # Eşleşme yoksa telegram_thread_id (varsayılan) kullanılır. JSON env:
     #   NOTIFYGATE_ROUTES={"project_a":"4721","project_b":"4722"}

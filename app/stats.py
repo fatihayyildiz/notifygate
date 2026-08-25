@@ -95,6 +95,19 @@ class EventsStore:
             """
         )
         self._migrate()
+        self._conn.execute(
+            "CREATE TABLE IF NOT EXISTS slack_threads (topic TEXT PRIMARY KEY, thread_ts TEXT NOT NULL)"
+        )
+        self._conn.commit()
+
+    def thread_for(self, topic: str) -> str:
+        row = self._conn.execute("SELECT thread_ts FROM slack_threads WHERE topic = ?", (topic,)).fetchone()
+        return row[0] if row else ""
+
+    def save_thread(self, topic: str, thread_ts: str) -> None:
+        self._conn.execute(
+            "INSERT OR REPLACE INTO slack_threads (topic, thread_ts) VALUES (?, ?)", (topic, thread_ts)
+        )
         self._conn.commit()
 
     def _migrate(self) -> None:

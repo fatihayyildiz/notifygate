@@ -14,8 +14,20 @@ from collections import defaultdict
 import httpx
 
 from .config import settings
+from .stats import make_events_store
 
 logger = logging.getLogger(__name__)
+
+# Slack thread takibi — topic → thread_ts (aynı DB, WAL sayesinde çakışma yok).
+# Lazy: ilk kullanımda açılır ki testler settings.db_path'i tmp'e çevirebilsin.
+_threads = None
+
+
+def _thread_store():
+    global _threads
+    if _threads is None:
+        _threads = make_events_store()
+    return _threads
 
 
 def _fmt(title: str, body: str | None, source: str, priority: str) -> str:
@@ -61,13 +73,38 @@ async def _send_telegram(text: str, thread_id: str | None) -> bool:
     return True
 
 
-async def _send_slack(text: str) -> bool:
-    """Slack webhook'una tek mesaj gönderir. Yapılandırılmamışsa False."""
-    if not settings.slack_webhook_url:
-        return False
+async def _send_slack(text: str, topic: str = "") -> bool:
+    """Slack'e gönderir. Bot token'ı varsa topic bazlı THREAD kullanır
+    (her topic kendi thread'inde birikir); yoksa webhook'a tek mesaj."""
+    if settings.slack_token and settings.slack_channel:
+        return await _send_slack_post(text, topic or "default")
+    if settings.slack_webhook_url:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(settings.slack_webhook_url, json={"text": text})
+            resp.raise_for_status()
+        return True
+    return False
+
+
+async def _send_slack_post(text: str, topic: str) -> bool:
+    """chat.postMessage ile gönder; topic'in mevcut thread'ine cevap ver."""
+    payload: dict = {"channel": settings.slack_channel, "text": text}
+    thread_ts = _thread_store().thread_for(topic)
+    if thread_ts:
+        payload["thread_ts"] = thread_ts
     async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.post(settings.slack_webhook_url, json={"text": text})
+        resp = await client.post(
+            "https://slack.com/api/chat.postMessage",
+            json=payload,
+            headers={"Authorization": f"Bearer {settings.slack_token}"},
+        )
         resp.raise_for_status()
+        body = resp.json()
+        if not body.get("ok"):
+            logger.warning("Slack postMessage: %s", body.get("error"))
+            return False
+        if not thread_ts and body.get("ts"):
+            _thread_store().save_thread(topic, body["ts"])
     return True
 
 
@@ -79,7 +116,7 @@ async def deliver(event) -> bool:
     """Bir olayı yapılandırılmış kanallara iletir (Telegram + opsiyonel Slack)."""
     text = _fmt(event.title, event.body, event.source, event.priority.value)
     sent = await _send_telegram(text, _thread_for(event))
-    sent = await _send_slack(text) or sent
+    sent = await _send_slack(text, event.topic or "default") or sent
     if not sent:
         _dry_run(text)
     return sent

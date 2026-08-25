@@ -100,11 +100,26 @@ from Slack (no bot token, no OAuth):
 3. Restart NotifyGate. Every delivery now goes to Telegram **and** the
    Slack channel. If Telegram is not configured, Slack is used alone.
 
+### Threads (optional, bot token mode)
+
+The incoming webhook alone cannot open threads, but if you create a small
+Slack app with the `chat:write` scope you get **topic-based threads**:
+
+```bash
+NOTIFYGATE_SLACK_TOKEN=xoxb-...
+NOTIFYGATE_SLACK_CHANNEL=#notifygate
+```
+
+Each routing topic then accumulates its own Slack thread — the first event
+opens the thread, subsequent events for the same topic reply inside it
+(mirroring Telegram topics). Threads persist across restarts.
+
 Notes:
 
-- Slack has no topics/threads — **digests arrive as a single message**
-  on the webhook's channel (Telegram keeps per-topic grouping).
-- Unset the variable to disable Slack entirely (current behaviour unchanged).
+- Slack has no topics/threads in the webhook-only mode — **digests arrive
+  as a single message** on the webhook's channel (Telegram keeps per-topic
+  grouping).
+- Unset the variables to disable Slack entirely (current behaviour unchanged).
 
 ## Hermes plugin (open-source install)
 

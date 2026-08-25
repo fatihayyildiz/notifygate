@@ -18,5 +18,6 @@ def no_real_telegram(monkeypatch, tmp_path):
     from app import main
     from app.stats import EventsStore
     monkeypatch.setattr(main, "events", EventsStore(tmp_path / "events.db"))
+    monkeypatch.setattr(outbound, "_threads", EventsStore(tmp_path / "threads.db"))
     main.digest_buffer.clear()
     yield

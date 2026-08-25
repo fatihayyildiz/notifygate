@@ -23,14 +23,14 @@ def slack_env(monkeypatch):
 
 
 class _FakeResp:
-    def __init__(self):
-        pass
+    def __init__(self, payload=None):
+        self._payload = payload or {"ok": True}
 
     def raise_for_status(self):
         return None
 
     def json(self):
-        return {"ok": True}
+        return self._payload
 
 
 def _capture(monkeypatch):
@@ -84,3 +84,32 @@ def test_digest_single_slack_message(monkeypatch):
     tg_threads = {p.get("message_thread_id") for u, p in sent if "telegram" in u}
     assert tg_threads == {4721, None}
     assert len([1 for u, _ in sent if "telegram" in u]) == 2
+
+
+def test_slack_threads_per_topic(monkeypatch):
+    """Bot token modu: her topic kendi Slack thread'inde birikir."""
+    from app import outbound
+    monkeypatch.setattr(outbound.settings, "slack_token", "xoxb-test")
+    monkeypatch.setattr(outbound.settings, "slack_channel", "#notifygate")
+    monkeypatch.setattr(outbound.settings, "slack_webhook_url", "")
+
+    calls: list[dict] = []
+    ts_counter = [1000]
+
+    async def fake_post(self, url, json=None, **kw):
+        if "chat.postMessage" in url:
+            ts = str(ts_counter[0]); ts_counter[0] += 1
+            calls.append(json)
+            return _FakeResp({"ok": True, "ts": ts})
+        return _FakeResp()
+
+    monkeypatch.setattr(outbound.httpx.AsyncClient, "post", fake_post)
+
+    assert asyncio.run(outbound.deliver(make_event(topic="project_a", title="First")))
+    assert asyncio.run(outbound.deliver(make_event(topic="project_a", title="Second")))
+    assert asyncio.run(outbound.deliver(make_event(topic="project_b", title="Other")))
+
+    assert len(calls) == 3
+    assert calls[0].get("thread_ts") is None          # project_a: yeni thread
+    assert calls[1]["thread_ts"] == "1000"            # project_a: thread'e cevap
+    assert calls[2].get("thread_ts") is None          # project_b: yeni thread
