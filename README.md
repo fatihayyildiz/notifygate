@@ -83,6 +83,29 @@ Digests are grouped per thread — each topic receives its own batched summary.
 | Digest interval | `NOTIFYGATE_DIGEST_INTERVAL_SECONDS` | 300s |
 | Digest size cap | `NOTIFYGATE_DIGEST_MAX_EVENTS` | 20 |
 
+## Slack (optional)
+
+NotifyGate can deliver to **both Telegram and Slack** at the same time.
+You only need an [Incoming Webhook](https://api.slack.com/messaging/webhooks)
+from Slack (no bot token, no OAuth):
+
+1. Slack → *Apps* → *Incoming Webhooks* → create a webhook for a channel.
+2. Set it in your `.env`:
+
+   ```bash
+   # Slack console'unuzdaki Incoming Webhook URL'sini yapıştırın
+   NOTIFYGATE_SLACK_WEBHOOK_URL=<your-slack-incoming-webhook-url>
+   ```
+
+3. Restart NotifyGate. Every delivery now goes to Telegram **and** the
+   Slack channel. If Telegram is not configured, Slack is used alone.
+
+Notes:
+
+- Slack has no topics/threads — **digests arrive as a single message**
+  on the webhook's channel (Telegram keeps per-topic grouping).
+- Unset the variable to disable Slack entirely (current behaviour unchanged).
+
 ## Hermes plugin (open-source install)
 
 Hermes kullanıcıları NotifyGate'i tek komutla kurar — hooks.outbound yapılandırmasına dokunmadan:
