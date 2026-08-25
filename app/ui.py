@@ -60,6 +60,8 @@ UI_HTML = """<!DOCTYPE html>
   .p-critical { color: var(--red); } .p-high { color: #ff8c69; } .p-normal { color: #7fb3ff; } .p-low { color: var(--gray); }
   .empty { color: var(--muted); text-align: center; padding: 24px 0; }
   #err { color: var(--red); font-size: 13px; margin-top: 10px; display: none; }
+  .alltime { color: var(--muted); font-size: 12px; margin: -8px 0 6px; }
+  .summary { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
   footer { color: var(--muted); font-size: 12px; margin-top: 16px; }
   #tooltip { position: fixed; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 12px; pointer-events: none; z-index: 50; display: none; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
   #tooltip .tt-day { color: var(--muted); margin-bottom: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
@@ -112,7 +114,8 @@ UI_HTML = """<!DOCTYPE html>
     <div class="card dropped"><div class="num" id="c-dropped">–</div><div class="lbl">Dropped</div></div>
     <div class="card chat"><div class="num" id="c-chat">–</div><div class="lbl">Chat msgs</div></div>
   </div>
-  <div class="summary" id="summary"></div>
+  <div id="alltime" class="alltime"></div>
+  <div id="summary" class="summary"></div>
 
   <section>
     <h2>Recent messages (Telegram)</h2>
@@ -218,11 +221,20 @@ function fmtDay(iso) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {day: 'numeric', month: 'short'});
 }
 
-function renderCards(s) {
-  $('c-received').textContent = s.all_stream;    // olaylar + tüm mesajlar
-  $('c-delivered').textContent = s.delivered_total; // uyarı + asistan mesajları
-  $('c-digested').textContent = s.digested; $('c-swept').textContent = s.swept; $('c-dropped').textContent = s.dropped;
-  $('c-chat').textContent = s.chat;
+function fmtNum(n) {
+  n = Number(n) || 0;
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'k';
+  return String(n);
+}
+
+function renderCards(s, at) {
+  $('c-received').textContent = fmtNum(s.all_stream);    // olaylar + tüm mesajlar
+  $('c-delivered').textContent = fmtNum(s.delivered_total); // uyarı + asistan mesajları
+  $('c-digested').textContent = fmtNum(s.digested); $('c-swept').textContent = fmtNum(s.swept);
+  $('c-dropped').textContent = fmtNum(s.dropped); $('c-chat').textContent = fmtNum(s.chat);
+  const atLine = at ? `All time: <b>${fmtNum(at.received)}</b> events · <b>${fmtNum(at.swept)}</b> swept · <b>${fmtNum(at.delivered)}</b> delivered · <b>${fmtNum(at.digested)}</b> digested · <b>${fmtNum(at.dropped)}</b> dropped` : '';
+  $('alltime').innerHTML = atLine;
   $('summary').innerHTML =
     `Without NotifyGate, <b>${s.all_stream}</b> messages would have arrived today ` +
     `(<b>${s.received}</b> events + <b>${s.all_msgs}</b> messages) — the filter blocked <b>${s.swept}</b>` +
@@ -247,8 +259,8 @@ function renderChart(days) {
   let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">`;
   for (let g = 0; g <= 3; g++) {
     const v = max * g / 3, gy = y(v);
-    svg += `<line x1="${PL}" y1="${gy}" x2="${W-PR}" y2="${gy}" stroke="#20242e" stroke-width="1"/>`;
-    svg += `<text x="${PL-6}" y="${gy+4}" fill="#8b93a3" font-size="10" text-anchor="end">${Math.round(v)}</text>`;
+    svg += `<line x1="${PL}" y1="${gy}" x2="${W - PR}" y2="${gy}" stroke="#22262e" stroke-width="1"/>`;
+    svg += `<text x="${PL - 6}" y="${gy + 4}" text-anchor="end" fill="#8b93a3" font-size="10">${fmtNum(v)}</text>`;
   }
   days.forEach((d, i) => {
     svg += `<text x="${x(i)}" y="${H-5}" fill="#8b93a3" font-size="10" text-anchor="middle">${fmtDay(d.day)}</text>`;
@@ -278,8 +290,8 @@ function renderChart(days) {
       const d = days[Number(rect.dataset.i)];
       tip.innerHTML =
         `<div class="tt-day">${fmtDay(d.day)}</div>` +
-        `<div class="tt-row"><i style="background:#6C5CE7"></i>All Stream<b>${d.all_stream ?? 0}</b></div>` +
-        `<div class="tt-row"><i style="background:#8b93a3"></i>Swept<b>${sweptVal(d)}</b></div>`;
+        `<div class="tt-row"><i style="background:#6C5CE7"></i>All Stream<b>${fmtNum(d.all_stream ?? 0)}</b></div>` +
+        `<div class="tt-row"><i style="background:#8b93a3"></i>Swept + Chat<b>${fmtNum((d.swept ?? 0) + (d.chat ?? 0))}</b></div>`;
       tip.style.display = 'block';
       const pad = 14;
       tip.style.left = Math.min(ev.clientX + pad, window.innerWidth - 220) + 'px';
@@ -342,7 +354,7 @@ function renderPager(el, page, perPage, total, cb) {
   const p = Math.min(page, pages);
   el.innerHTML =
     `<button data-p="${p-1}" ${p <= 1 ? 'disabled' : ''}>‹ Prev</button>` +
-    `<span class="info">Page ${p} / ${pages} · ${total} total</span>` +
+    `<span class="info">Page ${p} / ${pages} · ${fmtNum(total)} total</span>` +
     `<button data-p="${p+1}" ${p >= pages ? 'disabled' : ''}>Next ›</button>`;
   el.querySelectorAll('button:not(:disabled)').forEach(b =>
     b.addEventListener('click', () => cb(Number(b.dataset.p))));
@@ -444,7 +456,7 @@ async function refresh() {
     const msgData = await msgRes.json();
     evTotal = evData.total; msgTotal = msgData.total;
     events = evData.events;
-    renderCards(stats.today); renderChart(stats.days); renderTable(); renderMessages(msgData.messages);
+    renderCards(stats.today, stats.all_time); renderChart(stats.days); renderTable(); renderMessages(msgData.messages);
     renderPager($('ev-pager'), evPage, EV_PAGE, evTotal, p => { evPage = p; refresh(); });
     renderPager($('msg-pager'), msgPage, MSG_PAGE, msgTotal, p => { msgPage = p; refresh(); });
     $('status').classList.remove('offline');

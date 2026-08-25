@@ -81,6 +81,7 @@ async def health():
 async def stats_history(days: int = Query(30, ge=1, le=365)):
     today = stats.today()
     history = stats.history(days)
+    all_time = await asyncio.to_thread(stats.totals)
     # Sohbet mesajları (Hermes):
     #   all_stream = olaylar + TÜM mesajlar (user + assistant)  → "All Stream" kartı
     #   chat = asistan mesajları → Delivered/Chat kartı
@@ -98,7 +99,7 @@ async def stats_history(days: int = Query(30, ge=1, le=365)):
     today["received_total"] = today["received"] + today["chat"]
     today["delivered_total"] = today["delivered"] + today["chat"]
     today["all_stream"] = today["received"] + today["all_msgs"]
-    return {"today": today, "days": history}
+    return {"today": today, "days": history, "all_time": all_time}
 
 
 @app.get("/api/events")

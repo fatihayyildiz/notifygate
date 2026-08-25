@@ -51,6 +51,17 @@ class StatsStore:
             return {c: 0 for c in COUNTERS}
         return dict(zip(COUNTERS, row))
 
+    def totals(self) -> dict:
+        """Tüm zamanların toplamı (asla sıfırlanmaz)."""
+        row = self._conn.execute(
+            "SELECT COALESCE(SUM(received),0), COALESCE(SUM(delivered),0), COALESCE(SUM(digested),0), "
+            "COALESCE(SUM(swept),0), COALESCE(SUM(dropped),0) FROM stats_daily"
+        ).fetchone()
+        return {
+            "received": row[0], "delivered": row[1], "digested": row[2],
+            "swept": row[3], "dropped": row[4],
+        }
+
     def history(self, days: int = 30) -> list[dict]:
         """Son `days` gün, en eskiden en yeniye — boş günler sıfırla doldurulur."""
         start = date.today() - timedelta(days=days - 1)
