@@ -114,7 +114,7 @@ UI_HTML = """<!DOCTYPE html>
     <div class="card dropped"><div class="num" id="c-dropped">–</div><div class="lbl">Dropped</div></div>
     <div class="card chat"><div class="num" id="c-chat">–</div><div class="lbl">Chat msgs</div></div>
   </div>
-  <div id="alltime" class="alltime"></div>
+  <div id="alltime" class="alltime">Cumulative totals (all time) — daily breakdown in the chart below</div>
   <div id="summary" class="summary"></div>
 
   <section>
@@ -229,12 +229,13 @@ function fmtNum(n) {
 }
 
 function renderCards(s, at) {
-  $('c-received').textContent = fmtNum(s.all_stream);    // olaylar + tüm mesajlar
-  $('c-delivered').textContent = fmtNum(s.delivered_total); // uyarı + asistan mesajları
-  $('c-digested').textContent = fmtNum(s.digested); $('c-swept').textContent = fmtNum(s.swept);
-  $('c-dropped').textContent = fmtNum(s.dropped); $('c-chat').textContent = fmtNum(s.chat);
-  const atLine = at ? `All time: <b>${fmtNum(at.received)}</b> events · <b>${fmtNum(at.swept)}</b> swept · <b>${fmtNum(at.delivered)}</b> delivered · <b>${fmtNum(at.digested)}</b> digested · <b>${fmtNum(at.dropped)}</b> dropped` : '';
-  $('alltime').innerHTML = atLine;
+  // Üst kutucuklar BİRİKİMLİ (all-time) toplamları gösterir; günlük kırılım
+  // grafikte ve özet satırında kalır.
+  const a = at || s;
+  $('c-received').textContent = fmtNum(a.all_stream);
+  $('c-delivered').textContent = fmtNum(a.delivered_total);
+  $('c-digested').textContent = fmtNum(a.digested); $('c-swept').textContent = fmtNum(a.swept);
+  $('c-dropped').textContent = fmtNum(a.dropped); $('c-chat').textContent = fmtNum(a.chat ?? 0);
   $('summary').innerHTML =
     `Without NotifyGate, <b>${s.all_stream}</b> messages would have arrived today ` +
     `(<b>${s.received}</b> events + <b>${s.all_msgs}</b> messages) — the filter blocked <b>${s.swept}</b>` +

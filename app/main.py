@@ -99,6 +99,14 @@ async def stats_history(days: int = Query(30, ge=1, le=365)):
     today["received_total"] = today["received"] + today["chat"]
     today["delivered_total"] = today["delivered"] + today["chat"]
     today["all_stream"] = today["received"] + today["all_msgs"]
+    # Birikimli (all-time) toplamlar — üst kutucuklar bunları gösterir,
+    # günlük sayılarla karışmaz. Sohbet tarafı Hermes DB'sinin tüm geçmişi.
+    chat_all = await asyncio.to_thread(chat_counts, 3660)
+    all_msgs_all = await asyncio.to_thread(all_message_counts, 3660)
+    all_time["chat"] = sum(chat_all.values())
+    all_time["all_msgs"] = sum(all_msgs_all.values())
+    all_time["all_stream"] = all_time["received"] + all_time["all_msgs"]
+    all_time["delivered_total"] = all_time["delivered"] + all_time["chat"]
     return {"today": today, "days": history, "all_time": all_time}
 
 
